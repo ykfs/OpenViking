@@ -205,7 +205,7 @@ per-harness 章节（档案卡）只写差异；所有共享事实均在本章�
 5. mcpUrl：`OPENVIKING_MCP_URL`（非 cli 模式）→ `${baseUrl}/mcp`。
 6. 统一请求头：`Authorization: Bearer` + `X-OpenViking-Account/User/Actor-Peer` + `User-Agent: openviking-memory-<harness>/<version>`。
 
-**workspace peer**（家族 A 全体 + agent-plugins）：无显式 peerId 且 `OPENVIKING_WORKSPACE_PEER≠0` 时用 cwd 派生——把路径中所有非字母数字字符替换成 `-`（`/Users/x/Dev/OpenViking` → `-Users-x-Dev-OpenViking`），该值随 `X-OpenViking-Actor-Peer` 发送；服务端会对该头校验，含 `/` 或 `\` 返回 400。openclaw 的 peer 由 `peer_role`/`peer_prefix` 推导（`peer_role=person` 时需保证 sender 信息可用，否则工具调用报错）；hermes 的 peer 就是 `OPENVIKING_AGENT`（默认 `hermes`）。
+**workspace peer**（家族 A 全体 + agent-plugins）：无显式 peerId 且 `OPENVIKING_WORKSPACE_PEER≠0` 时，用 cwd 向上定位所属工作副本根目录派生——向上查找 `.git`（目录或文件）或 `.svn` 标记，最近的 `.git` 优先，SVN 1.6 每层都有 `.svn` 时取最外层，取该根目录的**最后一层目录名**，名字中所有非字母数字字符替换成 `-`（`/Users/x/Dev/OpenViking` 与 `/home/y/work/OpenViking` 同为 `OpenViking`，因此同一账号下的团队可共享同一个项目 peer）。不在任何工作副本内时退回 cwd 最后一层目录名，空路径不产生 peer。注意：仓库目录名已成为团队身份的一部分（同一仓库以不同目录名 clone 会得到不同 peer）；改造前按整条路径写入的历史记忆不再被自动命中，需改用 `OPENVIKING_RECALL_PEER_SCOPE=all` 或将 `OPENVIKING_PEER_ID` 显式设为旧值访问。该值随 `X-OpenViking-Actor-Peer` 发送；服务端会对该头校验，含 `/` 或 `\` 返回 400。openclaw 的 peer 由 `peer_role`/`peer_prefix` 推导（`peer_role=person` 时需保证 sender 信息可用，否则工具调用报错）；hermes 的 peer 就是 `OPENVIKING_AGENT`（默认 `hermes`）。
 
 ### 3.1.4 配置体系分层
 

@@ -145,11 +145,14 @@ when exact category ceilings are required.
 API keys are resolved from environment variables or `~/.openviking/ovcli.conf` and sent as `Authorization: Bearer ...` by both hooks and the MCP proxy. Recall goes through the server-side context face (`POST /api/v1/search/search` with `mode="context"`), falling back to the deprecated `/api/v1/search/recall` on older deployments. `account` and `user` are trusted-mode identity
 headers sent as `X-OpenViking-Account` and `X-OpenViking-User`; leave them empty
 when using API-key mode with user/admin API keys.
-By default the plugin derives a peer from the project directory using Claude's
-project-directory naming rule: every non-letter-or-digit character becomes `-`,
-with no path normalization. For example, `/Users/x/Dev/OpenViking` becomes
-`-Users-x-Dev-OpenViking`. Data-plane memory/resource requests send the
-effective peer as `X-OpenViking-Actor-Peer`; captured session messages store it
+By default the plugin derives a peer from the working copy that owns the project
+directory: the path is walked upward for a `.git` (directory or file) or `.svn`
+marker, the nearest `.git` wins, an SVN 1.6 working copy resolves to its
+outermost `.svn`, and that root directory's name becomes the peer with every
+non-letter-or-digit character replaced by `-`; outside any working copy the
+project directory's own name is used. For example, `/Users/x/Dev/OpenViking`
+becomes `OpenViking` on every machine. Data-plane memory/resource requests send
+the effective peer as `X-OpenViking-Actor-Peer`; captured session messages store it
 as body `peer_id`. Configure `peerId` or `OPENVIKING_PEER_ID` to override the
 workspace-derived peer, or set `workspacePeer=false` /
 `OPENVIKING_WORKSPACE_PEER=0` to turn workspace-derived peers off.

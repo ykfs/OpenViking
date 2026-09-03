@@ -31,7 +31,7 @@ and `OPENVIKING_PENDING_DIR` relocate individual pieces.
 | url | `OPENVIKING_URL` → `OPENVIKING_BASE_URL` → `ovcli.conf url` → `ov.conf server.url` → `http://{server.host\|127.0.0.1}:{server.port\|1933}` |
 | api_key | `OPENVIKING_BEARER_TOKEN` → `OPENVIKING_API_KEY` → `ovcli.conf api_key` → `ov.conf claude_code.apiKey` → `ov.conf server.root_api_key` |
 | account / user | `OPENVIKING_ACCOUNT` / `OPENVIKING_USER` → `ovcli.conf account/user` → `ov.conf claude_code.accountId/userId` |
-| peer | `OPENVIKING_PEER_ID` → `claude_code.peerId` → derived from cwd (`/Users/x/proj` → `-Users-x-proj`) unless `OPENVIKING_WORKSPACE_PEER=0` |
+| peer | `OPENVIKING_PEER_ID` → `claude_code.peerId` → derived from the working copy owning cwd (`/Users/x/proj` inside the `proj` checkout → `proj`) unless `OPENVIKING_WORKSPACE_PEER=0` |
 | enabled | `OPENVIKING_MEMORY_ENABLED` → `ov.conf claude_code.enabled === false` → "ov.conf or ovcli.conf exists and parses" |
 | tuning | env → `ovcli.conf plugin.claude_code.*` → `ovcli.conf plugin.*` → `ov.conf claude_code.*` → defaults |
 

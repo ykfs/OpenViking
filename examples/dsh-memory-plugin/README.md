@@ -121,7 +121,7 @@ Common environment variables:
 | `OPENVIKING_ACCOUNT` | Trusted-mode account |
 | `OPENVIKING_USER` | Trusted-mode user |
 | `OPENVIKING_PEER_ID` | Explicit actor peer |
-| `OPENVIKING_WORKSPACE_PEER` | Derive a peer from each DSH session workspace by default |
+| `OPENVIKING_WORKSPACE_PEER` | Derive a peer from each DSH session's checkout directory name by default |
 | `OPENVIKING_RECALL_PEER_SCOPE` | `all` for cross-workspace recall or `actor` for isolation |
 
 The patch can also carry plugin config:

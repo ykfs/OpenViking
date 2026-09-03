@@ -9,11 +9,23 @@ Claude Code, Codex, OpenCode, and pi memory plugins by `sync.mjs`.
 
 ## Workspace Peers
 
-`lib/workspace-peer.mjs` derives the default actor peer from the current
-workspace path. The rule matches Claude's project-directory naming: every
-character outside `A-Z`, `a-z`, and `0-9` becomes `-`; paths are not normalized,
-folded, or trimmed. For example, `/Users/x/Dev/OpenViking` becomes
-`-Users-x-Dev-OpenViking`.
+`lib/workspace-peer.mjs` derives the default actor peer from the working copy
+that owns the current workspace. The path is walked upward for a `.git` marker
+(directory or file) or an `.svn` marker: the nearest `.git` wins, an SVN 1.6
+working copy resolves to its outermost `.svn`, and the last directory name of
+that root becomes the peer. Only `A-Z`, `a-z`, and `0-9` survive; every other
+character in the name becomes `-`. Outside any working copy the workspace
+directory's own name is used, and an empty path yields no peer. For example,
+`/Users/x/Dev/OpenViking` and `/home/y/work/OpenViking` both become
+`OpenViking`, so teammates sharing one account share one peer per project.
+
+Two consequences matter when you rely on a shared peer:
+
+- Teammates must clone the repository under the same directory name, because
+  that name is the peer.
+- Memory captured earlier under the old full-path peer is not matched under the
+  new one. Set `OPENVIKING_RECALL_PEER_SCOPE=all` for broad recall, or
+  `OPENVIKING_PEER_ID` to the old value, to reach it.
 
 Resolution order is:
 
