@@ -141,7 +141,7 @@ test("Cursor injects recall before the request and Stop captures transcript delt
       runHook("beforeSubmitPrompt", { ...base, prompt: "what did we decide?", generation_id: "prompt-1" }, env),
     ]);
     assert.equal(injections.filter((item) => /remembered context/.test(item.additional_context || "")).length, 1);
-    assert.deepEqual(actorPeers, ["-workspace"]);
+    assert.deepEqual(actorPeers, ["workspace"]);
 
     const transcript = join(root, "cursor-test.jsonl");
     writeFileSync(transcript, [

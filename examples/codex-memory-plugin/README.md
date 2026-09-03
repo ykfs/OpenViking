@@ -116,7 +116,7 @@ Hooks and the MCP proxy call the same resolver directly, so the model tools and 
 
 Auth is sent as `Authorization: Bearer <api_key>` to both the REST API (used by hooks) and the `/mcp` endpoint (used by the model); the hooks also send the same key as `X-API-Key` for compatibility with older servers.
 
-By default the hooks derive a peer from the current workspace path using Claude's project-directory naming rule: every non-letter-or-digit character becomes `-`, with no path normalization. For example, `/Users/x/Dev/OpenViking` becomes `-Users-x-Dev-OpenViking`. Hooks pass the effective peer as `peer_id` for captured session messages and as `X-OpenViking-Actor-Peer` for retrieval and filesystem calls.
+By default the hooks derive a peer from the working copy that owns the current workspace: the path is walked upward for a `.git` (directory or file) or `.svn` marker, the nearest `.git` wins, an SVN 1.6 working copy resolves to its outermost `.svn`, and that root directory's name becomes the peer with every non-letter-or-digit character replaced by `-`; outside any working copy the workspace directory's own name is used. For example, `/Users/x/Dev/OpenViking` becomes `OpenViking` on every machine, so teammates on one account share a peer per project. Hooks pass the effective peer as `peer_id` for captured session messages and as `X-OpenViking-Actor-Peer` for retrieval and filesystem calls.
 
 Set `actor_peer_id` in `ovcli.conf` (or `OPENVIKING_PEER_ID` with `OPENVIKING_CREDENTIAL_SOURCE=env`) to override the workspace-derived peer. The legacy `codex.peerId` / `codex.peer_id` fields in `ov.conf` still resolve as a fallback. Set `OPENVIKING_WORKSPACE_PEER=0` or `codex.workspacePeer=false` to turn off workspace-derived peers.
 

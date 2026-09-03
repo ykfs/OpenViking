@@ -132,10 +132,11 @@ test("loadConfig derives workspace peer by default", async () => {
       process.env.OPENVIKING_CREDENTIAL_SOURCE = "env"
       process.env.OPENVIKING_URL = "https://env.example.com"
       const project = join(dir, "Project A")
+      await mkdir(join(project, ".git"), { recursive: true })
 
       const cfg = loadConfig(dir, project)
       assert.deepEqual(cfg.effectivePeer, {
-        peerId: project.replace(/[^A-Za-z0-9]/g, "-"),
+        peerId: "Project-A",
         source: "workspace",
       })
     } finally {

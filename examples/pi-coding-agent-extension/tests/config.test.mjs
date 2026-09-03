@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -125,11 +125,19 @@ test("loadConfig clamps invalid takeover values", async () => {
 
 test("loadConfig derives workspace peer by default", async () => {
   const oldCwd = process.cwd();
-  await withConfigFile({}, (cfg) => {
-    assert.equal(cfg.peerId, oldCwd.replace(/[^A-Za-z0-9]/g, "-"));
-    assert.equal(cfg.workspacePeer, true);
-    assert.equal(cfg.recallPeerScope, "all");
-  });
+  const workspace = await mkdtemp(join(tmpdir(), "ov-pi-workspace-"));
+  try {
+    await mkdir(join(workspace, "Pi Project", ".git"), { recursive: true });
+    process.chdir(join(workspace, "Pi Project"));
+    await withConfigFile({}, (cfg) => {
+      assert.equal(cfg.peerId, "Pi-Project");
+      assert.equal(cfg.workspacePeer, true);
+      assert.equal(cfg.recallPeerScope, "all");
+    });
+  } finally {
+    process.chdir(oldCwd);
+    await rm(workspace, { recursive: true, force: true });
+  }
 });
 
 test("loadConfig prefers config peer over workspace derivation", async () => {

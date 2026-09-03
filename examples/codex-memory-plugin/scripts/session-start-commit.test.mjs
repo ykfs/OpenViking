@@ -200,7 +200,7 @@ test("startup injects the shared profile block with workspace peer routing", asy
       request.path === "/api/v1/content/read" || request.path === "/api/v1/fs/ls"
     );
     assert.ok(profileRequests.length >= 4);
-    assert.ok(profileRequests.every((request) => request.actorPeerId === "-tmp-codex-profile"));
+    assert.ok(profileRequests.every((request) => request.actorPeerId === "codex-profile"));
   } finally {
     await rm(stateDir, { recursive: true, force: true });
   }

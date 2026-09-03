@@ -88,7 +88,7 @@ tiers and cross-turn dedup are shared with every other harness. Deployments
 without that endpoint fall back to `/api/v1/search/recall`, and that outcome is
 cached so only the first turn pays for the probe.
 
-API keys are sent as `Authorization: Bearer ...`. By default the extension derives a peer from the process workspace path using Claude's project-directory naming rule: every non-letter-or-digit character becomes `-`, with no path normalization. For example, `/Users/x/Dev/OpenViking` becomes `-Users-x-Dev-OpenViking`. The effective peer is sent as `X-OpenViking-Actor-Peer` and stored as `peer_id` on captured session messages. An explicit peer from the shared credential sources (`OPENVIKING_PEER_ID`, `ovcli.conf`, or `ov.conf`) takes precedence over `config.json`'s `peerId`; the local `peerId` in turn takes precedence over workspace derivation.
+API keys are sent as `Authorization: Bearer ...`. By default the extension derives a peer from the working copy that owns the process workspace: the path is walked upward for a `.git` (directory or file) or `.svn` marker, the nearest `.git` wins, an SVN 1.6 working copy resolves to its outermost `.svn`, and that root directory's name becomes the peer with every non-letter-or-digit character replaced by `-`; outside any working copy the workspace directory's own name is used. For example, `/Users/x/Dev/OpenViking` becomes `OpenViking` on every machine. The effective peer is sent as `X-OpenViking-Actor-Peer` and stored as `peer_id` on captured session messages. An explicit peer from the shared credential sources (`OPENVIKING_PEER_ID`, `ovcli.conf`, or `ov.conf`) takes precedence over `config.json`'s `peerId`; the local `peerId` in turn takes precedence over workspace derivation.
 
 Recall defaults to the broad mode: global memory, the current workspace, and other workspace memories can all be recalled, with other workspaces penalized and rendered later. Set `OPENVIKING_RECALL_PEER_SCOPE=actor` for the isolation mode, which only sees global memory plus the current workspace. In deployments where one bot serves multiple real people, such as zouk, vikingbot, or AstrBot, use the isolation mode with an explicit actor peer so one person's memories are not recalled into another person's session.
 
@@ -116,7 +116,7 @@ All fields below live in `config.json`. Defaults are shown.
 | Field                    | Default    | Description                                                              |
 |--------------------------|------------|--------------------------------------------------------------------------|
 | `peerId`                 | `""`      | Local explicit peer fallback; shared credential sources take precedence  |
-| `workspacePeer`          | `true`     | Derive a peer from the current workspace when no explicit peer is set    |
+| `workspacePeer`          | `true`     | Derive a peer from the workspace's checkout directory name when unset    |
 | `recallPeerScope`        | `"all"`   | Use `"actor"` for strict current-peer recall or `"all"` for broad recall |
 
 ### Recall tuning
