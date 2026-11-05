@@ -38,18 +38,25 @@ const TARGETS = [
 ];
 const GENERATED_HEADER = "// GENERATED FROM examples/memory-plugin-shared/lib. DO NOT EDIT.\n";
 const SKILLS_DIR = join(ROOT, "examples", "skills");
+const SKILLS_DSH_DIR = join(ROOT, "examples", "skills-dsh");
 const SKILL_TARGETS = [
   {
     skill: "openviking-memory",
+    source: SKILLS_DIR,
     dirs: [
       join(ROOT, "examples", "codex-memory-plugin", "skills"),
       join(ROOT, "examples", "claude-code-memory-plugin", "skills"),
       join(ROOT, "examples", "cursor-memory-plugin", "skills"),
-      join(ROOT, "examples", "dsh-memory-plugin", "skills"),
     ],
   },
   {
+    skill: "openviking-memory",
+    source: SKILLS_DSH_DIR,
+    dirs: [join(ROOT, "examples", "dsh-memory-plugin", "skills")],
+  },
+  {
     skill: "ov-experience-memory",
+    source: SKILLS_DIR,
     dirs: [
       join(ROOT, "examples", "codex-memory-plugin", "skills"),
       join(ROOT, "examples", "claude-code-memory-plugin", "skills"),
@@ -76,9 +83,9 @@ test("vendored shared modules are synchronized", async () => {
   }
 });
 
-test("vendored skills are byte-identical to examples/skills", async () => {
-  for (const { skill, dirs } of SKILL_TARGETS) {
-    const files = (await readdir(join(SKILLS_DIR, skill))).sort();
+test("vendored skills are byte-identical to their source directory", async () => {
+  for (const { skill, source, dirs } of SKILL_TARGETS) {
+    const files = (await readdir(join(source, skill))).sort();
     assert.ok(files.includes("SKILL.md"), `${skill} must ship a SKILL.md`);
 
     for (const dir of dirs) {
@@ -91,7 +98,7 @@ test("vendored skills are byte-identical to examples/skills", async () => {
       for (const file of files) {
         assert.equal(
           await readFile(join(target, file), "utf-8"),
-          await readFile(join(SKILLS_DIR, skill, file), "utf-8"),
+          await readFile(join(source, skill, file), "utf-8"),
           `${relative(ROOT, join(target, file))} is out of sync; run node examples/memory-plugin-shared/sync.mjs`,
         );
       }

@@ -47,21 +47,30 @@ const GENERATED_HEADER = "// GENERATED FROM examples/memory-plugin-shared/lib. D
 // Skills are copied verbatim — a generated-from banner ahead of the `---`
 // frontmatter would break every skill loader.
 const SKILLS_DIR = join(ROOT, "examples", "skills");
+// DSH registers its own in-process memory tools, so its skill text differs from
+// the MCP-based bundles shared by codex, claude-code, and cursor.
+const SKILLS_DSH_DIR = join(ROOT, "examples", "skills-dsh");
 const SKILL_TARGETS = [
   {
     // Not shipped to openclaw-plugin: its REST tool surface has its own
     // operator skill (openviking-context-database) with different tool names.
     skill: "openviking-memory",
+    source: SKILLS_DIR,
     dirs: [
       join(ROOT, "examples", "codex-memory-plugin", "skills"),
       join(ROOT, "examples", "claude-code-memory-plugin", "skills"),
       join(ROOT, "examples", "cursor-memory-plugin", "skills"),
-      join(ROOT, "examples", "dsh-memory-plugin", "skills"),
     ],
+  },
+  {
+    skill: "openviking-memory",
+    source: SKILLS_DSH_DIR,
+    dirs: [join(ROOT, "examples", "dsh-memory-plugin", "skills")],
   },
   {
     // Only the two harnesses that ship the experience workflow today.
     skill: "ov-experience-memory",
+    source: SKILLS_DIR,
     dirs: [
       join(ROOT, "examples", "codex-memory-plugin", "skills"),
       join(ROOT, "examples", "claude-code-memory-plugin", "skills"),
@@ -82,8 +91,8 @@ async function copySharedFile(file, targetDir) {
   await writeFile(target, `${GENERATED_HEADER}${body}`, "utf-8");
 }
 
-async function copySkill(skill, targetDir) {
-  const sourceDir = join(SKILLS_DIR, skill);
+async function copySkill(source, skill, targetDir) {
+  const sourceDir = join(source, skill);
   for (const file of (await readdir(sourceDir)).sort()) {
     const target = join(targetDir, skill);
     await mkdir(target, { recursive: true });
@@ -103,9 +112,9 @@ async function main() {
       process.stdout.write(`synced ${file} -> ${relative(ROOT, target.dir)}\n`);
     }
   }
-  for (const { skill, dirs } of SKILL_TARGETS) {
+  for (const { skill, source, dirs } of SKILL_TARGETS) {
     for (const dir of dirs) {
-      await copySkill(skill, dir);
+      await copySkill(source, skill, dir);
       process.stdout.write(`synced ${skill}/ -> ${relative(ROOT, dir)}\n`);
     }
   }
