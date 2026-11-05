@@ -105,9 +105,21 @@ class MatchedContext:
     abstract: str                    # L0 内容
     overview: Optional[str]          # L1 概览（非叶子节点时可选）
     category: str                    # 分类
-    score: float                     # 相关性分数 (0-1)
+    score: float                     # 加权排序分 = raw_score × (1 - 0.2 × (1 - confidence))
+    raw_score: float                 # 未加权检索分（等于改造前的 score）
+    confidence: float                # 人工置信度，缺省 1.0
     match_reason: str                # 匹配原因
 ```
+
+**结果字段**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `score` | float | 加权排序分，只用于排序与展示：`score == raw_score × (1 - 0.2 × (1 - confidence))` |
+| `raw_score` | float | 未加权检索分，等于本次改造前的 `score`，相关性门槛只作用于它 |
+| `confidence` | float | 人工置信度，闭区间 `[0.0, 1.0]`，缺省 `1.0` |
+
+`find()` 与 `search(mode="list")` 的每个结果项，以及 `search(mode="context")` 的 `entries[]` 每项，都在 `score` 之外同时返回 `raw_score` 与 `confidence`。**相关性门槛用未加权分；排序与展示用加权分**：`score_threshold`（以及 MCP `min_score`、CLI `-t/--threshold`）只作用于未加权的检索分，人工置信度不参与任何门槛判定；只有需要排序名次或展示时才使用 `score = raw_score × (1 - 0.2 × (1 - confidence))`。`confidence = 1.0` 表示未标注、不折扣；`confidence = 0.0` 是最强降权（`score` 压到 `raw_score` 的 80%），**不表示排除该结果**。
 
 #### 3. 使用示例
 
@@ -760,6 +772,8 @@ curl -X POST http://localhost:1933/api/v1/search/search \
 | `entries[].category` | string | `events`/`entities`/`preferences`/`experiences`/`resources`/`skills`，或 `memories`（四个具名类型之外的内置记忆类型） |
 | `entries[].detail` | string | 实际档位：`full`、`overview`、`abstract` 或 `uri` |
 | `entries[].text` | string | 该档位的正文；`uri` 档为空 |
+| `entries[].raw_score` | float | 未加权检索分，等于改造前的 `score`；`entries[].score` 是排序与展示用的加权分 |
+| `entries[].confidence` | float | 人工置信度，闭区间 `[0.0, 1.0]`，缺省 `1.0` |
 | `rendered` | string | 扁平 XML 上下文块，可直接注入；重写返回 `no_relevant` 时为空 |
 | `digest` | string | 重写成功时的摘要；失败或压缩器判定无相关记忆时为空字符串 |
 | `stats` | object | 预算用量、档位分布、扩展与重写状态（`off`、`ok`、`no_relevant`、`failed` 或 `timeout`）、去重账本状态；某个检索域失败时附带 `retrieval_errors`，用于区分「检索坏了」和「确实没有相关记忆」 |

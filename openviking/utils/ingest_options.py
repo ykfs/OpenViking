@@ -22,6 +22,12 @@ class IngestOptions:
 
     search_tags: Optional[list[str]] = None
     search_tag_mode: str = "replace"
+    # Human-assigned confidence for the content being ingested. ``None`` means
+    # "this call carries no confidence", so a partial update leaves any existing
+    # value untouched. Callers that own the value (the add-resource request path)
+    # always pass it explicitly, including the 1.0 default, so re-importing a
+    # resource resets it. Rewrite and re-index paths leave it unset.
+    confidence: Optional[float] = None
 
     @classmethod
     def from_search_tags(
@@ -50,10 +56,12 @@ class IngestOptions:
                 else None
             ),
             search_tag_mode=str(value.get("search_tag_mode", "replace")),
+            confidence=value.get("confidence"),
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "search_tags": list(self.search_tags) if self.search_tags is not None else None,
             "search_tag_mode": self.search_tag_mode,
+            "confidence": self.confidence,
         }

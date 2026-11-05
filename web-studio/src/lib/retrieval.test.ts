@@ -1,13 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchFind, fetchFindAllTypes, fetchGlob, fetchGrep } from './retrieval'
+import {
+  fetchFind,
+  fetchFindAllTypes,
+  fetchGlob,
+  fetchGrep,
+  fetchSearch,
+} from './retrieval'
 
-const { postSearchFindMock, postSearchGlobMock, postSearchGrepMock } =
-  vi.hoisted(() => ({
-    postSearchFindMock: vi.fn(),
-    postSearchGlobMock: vi.fn(),
-    postSearchGrepMock: vi.fn(),
-  }))
+const {
+  postSearchFindMock,
+  postSearchGlobMock,
+  postSearchGrepMock,
+  postSearchSearchMock,
+} = vi.hoisted(() => ({
+  postSearchFindMock: vi.fn(),
+  postSearchGlobMock: vi.fn(),
+  postSearchGrepMock: vi.fn(),
+  postSearchSearchMock: vi.fn(),
+}))
 
 vi.mock('#/lib/ov-client', () => ({
   getOvResult: async (request: Promise<unknown>) => {
@@ -20,7 +31,7 @@ vi.mock('#/lib/ov-client', () => ({
   postSearchFind: postSearchFindMock,
   postSearchGlob: postSearchGlobMock,
   postSearchGrep: postSearchGrepMock,
-  postSearchSearch: vi.fn(),
+  postSearchSearch: postSearchSearchMock,
 }))
 
 function response(result: unknown) {
@@ -36,6 +47,7 @@ describe('pattern retrieval', () => {
     postSearchFindMock.mockReset()
     postSearchGlobMock.mockReset()
     postSearchGrepMock.mockReset()
+    postSearchSearchMock.mockReset()
   })
 
   it('passes advanced semantic filters through one find request', async () => {
@@ -165,5 +177,102 @@ describe('pattern retrieval', () => {
       ['glob', 'viking://resources/docs/guide.md'],
     ])
     expect(result.total).toBe(2)
+  })
+})
+
+describe('find result normalization', () => {
+  beforeEach(() => {
+    postSearchFindMock.mockReset()
+    postSearchSearchMock.mockReset()
+  })
+
+  it('normalizeFindItems keeps raw_score and confidence', async () => {
+    postSearchFindMock.mockReturnValue(
+      response({
+        resources: [
+          {
+            confidence: 0.5,
+            raw_score: 0.42,
+            score: 0.378,
+            uri: 'viking://resources/auth.md',
+          },
+        ],
+        total: 1,
+      }),
+    )
+
+    const result = await fetchFind('authentication')
+
+    expect(result.resources[0]).toMatchObject({
+      confidence: 0.5,
+      raw_score: 0.42,
+    })
+  })
+
+  it('normalizeFindItems defaults when fields missing', async () => {
+    postSearchFindMock.mockReturnValue(
+      response({
+        memories: [{ score: 0.8, uri: 'viking://user/default/memories/a.md' }],
+        total: 1,
+      }),
+    )
+
+    const result = await fetchFind('profile')
+
+    expect(result.memories[0]?.confidence).toBe(1)
+    expect(result.memories[0]?.raw_score).toBe(0)
+  })
+
+  it('normalizeFindItems preserves order', async () => {
+    postSearchFindMock.mockReturnValue(
+      response({
+        resources: [
+          { raw_score: 0.91, score: 0.91, uri: 'viking://resources/first.md' },
+          { raw_score: 0.55, score: 0.55, uri: 'viking://resources/second.md' },
+          { raw_score: 0.12, score: 0.12, uri: 'viking://resources/third.md' },
+        ],
+        total: 3,
+      }),
+    )
+
+    const result = await fetchFind('docs')
+
+    expect(result.resources.map((item) => item.uri)).toEqual([
+      'viking://resources/first.md',
+      'viking://resources/second.md',
+      'viking://resources/third.md',
+    ])
+  })
+
+  it('find and search use the same response normalizer', async () => {
+    const payload = {
+      memories: [
+        {
+          confidence: 0.4,
+          raw_score: 0.75,
+          score: 0.6,
+          uri: 'viking://user/default/memories/a.md',
+        },
+      ],
+      resources: [
+        {
+          confidence: 1,
+          raw_score: 0.3,
+          score: 0.3,
+          uri: 'viking://resources/b.md',
+        },
+      ],
+      total: 2,
+    }
+    postSearchFindMock.mockReturnValue(response(payload))
+    postSearchSearchMock.mockReturnValue(response(payload))
+
+    const findResult = await fetchFind('authentication')
+    const searchResult = await fetchSearch('authentication')
+
+    expect(searchResult.resources).toEqual(findResult.resources)
+    expect(searchResult.memories.map((item) => item.uri)).toEqual(
+      findResult.memories.map((item) => item.uri),
+    )
   })
 })

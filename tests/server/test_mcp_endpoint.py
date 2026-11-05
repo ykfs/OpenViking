@@ -1840,3 +1840,51 @@ async def test_tree_include_abstract_still_renders(service):
 
     result = await tree(uri="viking://resources/test_tree_abs", include_abstract=True)
     assert "\nnote.md (11 B)" in result
+
+
+@pytest.mark.asyncio
+async def test_format_search_result_shows_confidence_and_raw_score():
+    """The MCP text line must expose the weighted score, confidence and raw score."""
+    from types import SimpleNamespace
+
+    from openviking.server.mcp_endpoint import _format_search_result
+
+    result = SimpleNamespace(
+        memories=[],
+        resources=[
+            SimpleNamespace(
+                uri="viking://resources/a",
+                abstract="abstract",
+                overview="",
+                score=0.38,
+                raw_score=0.42,
+                confidence=0.5,
+            )
+        ],
+        skills=[],
+    )
+
+    text = await _format_search_result(result, service=None, ctx=None, read_content=False)
+
+    assert "38%" in text
+    assert "conf 0.50" in text
+    assert "raw 0.42" in text
+
+
+@pytest.mark.asyncio
+async def test_format_search_result_legacy_defaults():
+    """A hit from an older server renders without raising."""
+    from types import SimpleNamespace
+
+    from openviking.server.mcp_endpoint import _format_search_result
+
+    result = SimpleNamespace(
+        memories=[],
+        resources=[SimpleNamespace(uri="viking://resources/a", abstract="a", score=0.5)],
+        skills=[],
+    )
+
+    text = await _format_search_result(result, service=None, ctx=None, read_content=False)
+
+    assert "conf 1.00" in text
+    assert "raw 0.50" in text

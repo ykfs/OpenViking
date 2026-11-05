@@ -75,6 +75,7 @@ class AddResourceOptions(_ExtraOptions, total=False):
     add_type: str
     tags: List[str]
     tag_mode: Literal["replace", "append"]
+    confidence: float
 
 
 class AddSkillOptions(_ExtraOptions, total=False):

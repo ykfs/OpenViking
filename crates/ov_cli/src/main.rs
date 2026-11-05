@@ -351,7 +351,7 @@ enum Commands {
                 "add_type", "to", "parent", "parent_auto_create",
                 "strict_mode", "ignore_dirs", "include", "exclude",
                 "no_directly_upload_media", "tags", "tag_mode",
-                "reason", "instruction"
+                "confidence", "reason", "instruction"
             ]
         )]
         manifest: Option<String>,
@@ -460,6 +460,12 @@ enum Commands {
             help_heading = "Common options"
         )]
         tag_mode: String,
+        /// Human confidence for the imported resource, in the closed interval [0.0, 1.0].
+        /// Defaults to 1.0 (unannotated, no discount). 0.0 is the strongest down-weight:
+        /// it compresses the ranking score to 80% of itself and never excludes the
+        /// resource. Out-of-range or non-numeric values are rejected.
+        #[arg(long = "confidence", value_name = "0.0-1.0", help_heading = "Common options")]
+        confidence: Option<f64>,
         #[command(flatten)]
         upload_options: UploadCliOptions,
     },
@@ -3188,6 +3194,7 @@ async fn main() {
             timeout,
             tags,
             tag_mode,
+            confidence,
             strict_mode,
             ignore_dirs,
             include,
@@ -3244,6 +3251,7 @@ async fn main() {
                     resource_args,
                     tags,
                     tag_mode,
+                    confidence,
                     ctx,
                 )
                 .await
@@ -4447,6 +4455,64 @@ mod tests {
 
         assert!(help.contains("--tag"));
         assert!(help.contains("--tag-mode"));
+    }
+
+    #[test]
+    fn cli_parses_add_resource_confidence() {
+        let cli = Cli::try_parse_from(["ov", "add-resource", "./x", "--confidence", "0.4"])
+            .expect("add-resource confidence flag should parse");
+
+        match cli.command {
+            Commands::AddResource { confidence, .. } => assert_eq!(confidence, Some(0.4)),
+            _ => panic!("expected add-resource command"),
+        }
+    }
+
+    #[test]
+    fn cli_rejects_out_of_range_confidence() {
+        // The raw float parses; the range check runs before dispatch and, once it
+        // fails, `main` reports the error and exits non-zero without a request.
+        let cli = Cli::try_parse_from(["ov", "add-resource", "./x", "--confidence", "1.5"])
+            .expect("clap accepts the flag value");
+
+        match cli.command {
+            Commands::AddResource { confidence, .. } => {
+                let error = handlers::validate_confidence(confidence)
+                    .expect_err("confidence above 1.0 should be rejected");
+                assert!(error.to_string().contains("confidence"), "{error}");
+            }
+            _ => panic!("expected add-resource command"),
+        }
+    }
+
+    #[test]
+    fn cli_add_resource_help_shows_confidence_flag() {
+        let err = Cli::command()
+            .try_get_matches_from(["ov", "add-resource", "--help"])
+            .expect_err("help should exit through clap error");
+        let help = err.to_string();
+
+        assert!(help.contains("--confidence"));
+        assert!(help.contains("0.0-1.0"));
+    }
+
+    #[test]
+    fn cli_add_resource_confidence_conflicts_with_manifest() {
+        let result = Cli::try_parse_from([
+            "ov",
+            "add-resource",
+            "--manifest",
+            "manifest.json",
+            "--confidence",
+            "0.4",
+        ]);
+        let message = match result {
+            Ok(_) => panic!("--confidence must conflict with --manifest"),
+            Err(err) => err.to_string(),
+        };
+
+        assert!(message.contains("--confidence"), "{message}");
+        assert!(message.contains("--manifest"), "{message}");
     }
 
     #[test]

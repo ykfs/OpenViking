@@ -246,18 +246,25 @@ Some command help may also show the long `--output json` form. `-o json` is the 
 ## Examples
 
 ```bash
-# Add URL and wait for processing
-ov add-resource https://example.com/docs --wait --timeout 60
+# Add URL and wait for processing, marking it as lower-confidence web content
+ov add-resource https://example.com/docs --wait --timeout 60 --confidence 0.6
 
-# Add a local directory with filters
+# Add a local directory with filters, marking it as human-curated
 ov add-resource ./dir \
   --wait --timeout 600 \
+  --confidence 0.9 \
   --ignore-dirs "node_modules,dist" \
   --include "*.md,*.py" \
   --exclude "*.tmp,*.log"
 
-# Import into a predictable parent path
-ov add-resource ./docs -p "viking://resources/docs/{calendar:today}" --wait
+# Import into a predictable parent path, down-weighting its ranking score
+ov add-resource ./docs -p "viking://resources/docs/{calendar:today}" --confidence 0.5 --wait
+
+# --confidence is optional and defaults to 1.0 (no discount). It accepts the closed
+# interval [0.0, 1.0]: 1.0 means unannotated/no discount, while 0.0 is the strongest
+# down-weight (the ranking score is compressed to 80% of itself) and never excludes the
+# resource. Out-of-range or non-numeric values are rejected by the server. Re-importing
+# the same URI without --confidence resets the value to 1.0.
 
 # Search with filters
 ov find "API authentication" --threshold 0.7 --limit 5
@@ -291,7 +298,7 @@ ov session add-message "$SESSION" --role user --content "Hello"
 ov session commit "$SESSION"
 
 # Watch task management
-ov add-resource https://example.com/docs --to viking://resources/docs --watch-interval 60
+ov add-resource https://example.com/docs --to viking://resources/docs --watch-interval 60 --confidence 0.8
 ov task watch ls
 ov task watch trigger viking://resources/docs
 ```

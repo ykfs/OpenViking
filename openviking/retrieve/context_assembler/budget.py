@@ -64,6 +64,8 @@ def _make_entry(candidate: Candidate, tier: Tier, text: str) -> AssembledEntry:
         detail=tier,
         text=text,
         origin=candidate.origin,
+        raw_score=candidate.raw_score,
+        confidence=candidate.confidence,
     )
     entry.tokens = fragment_tokens(entry)
     return entry

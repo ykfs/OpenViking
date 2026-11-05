@@ -265,9 +265,7 @@ async def test_async_http_client_sends_event_memory_tag_configuration():
     client._handle_response_data = lambda _response: {"result": {"status": "ok"}}
     config = {"events": {"tags": ["team=search", "channel=web"]}}
 
-    await client.create_session(
-        "tagged-session", options={"memory_extraction_config": config}
-    )
+    await client.create_session("tagged-session", options={"memory_extraction_config": config})
     await client.update_session_config(
         "tagged-session",
         {
@@ -1345,8 +1343,7 @@ async def test_ls_and_tree_pass_query_params():
         },
     }
     assert [
-        tree_call.kwargs["params"]["level_limit"]
-        for tree_call in fake_http.get.await_args_list[1:]
+        tree_call.kwargs["params"]["level_limit"] for tree_call in fake_http.get.await_args_list[1:]
     ] == [2, 0, 3]
 
 
@@ -1540,3 +1537,53 @@ async def test_import_ovpack_fails_fast_when_path_is_directory(tmp_path):
 
     with pytest.raises(ValueError, match="is not a file"):
         await client.import_ovpack(str(pack_dir), parent="viking://resources/")
+
+
+async def test_add_resource_forwards_confidence():
+    client = AsyncHTTPClient(url="http://127.0.0.1:1933")
+    fake_http = SimpleNamespace(post=AsyncMock(return_value=object()))
+    client._http = fake_http
+    client._handle_response_data = lambda _response: {
+        "result": {"root_uri": "viking://resources/demo"}
+    }
+
+    await client.add_resource(
+        "https://example.com/demo.md",
+        options={"confidence": 0.4},
+    )
+
+    payload = fake_http.post.await_args.kwargs["json"]
+    assert payload["confidence"] == 0.4
+
+
+async def test_add_resource_keeps_explicit_zero_confidence():
+    """Zero is a meaningful value (strongest discount), not an absent field."""
+    client = AsyncHTTPClient(url="http://127.0.0.1:1933")
+    fake_http = SimpleNamespace(post=AsyncMock(return_value=object()))
+    client._http = fake_http
+    client._handle_response_data = lambda _response: {
+        "result": {"root_uri": "viking://resources/demo"}
+    }
+
+    await client.add_resource(
+        "https://example.com/demo.md",
+        options={"confidence": 0.0},
+    )
+
+    payload = fake_http.post.await_args.kwargs["json"]
+    assert payload["confidence"] == 0.0
+
+
+async def test_add_resource_omits_confidence_when_unset():
+    """An unset confidence must not be sent as null: older servers reject it."""
+    client = AsyncHTTPClient(url="http://127.0.0.1:1933")
+    fake_http = SimpleNamespace(post=AsyncMock(return_value=object()))
+    client._http = fake_http
+    client._handle_response_data = lambda _response: {
+        "result": {"root_uri": "viking://resources/demo"}
+    }
+
+    await client.add_resource("https://example.com/demo.md")
+
+    payload = fake_http.post.await_args.kwargs["json"]
+    assert "confidence" not in payload

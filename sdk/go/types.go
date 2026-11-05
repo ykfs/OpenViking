@@ -41,8 +41,11 @@ type AddResourceOptions struct {
 	Args                map[string]any
 	Tags                []string
 	TagMode             string
-	Telemetry           any
-	Extra               map[string]any
+	// Confidence is the human confidence for the imported content, in the closed
+	// range [0, 1]. Nil omits the field, which the server resolves to 1.0.
+	Confidence *float64
+	Telemetry  any
+	Extra      map[string]any
 }
 
 // AddSkillOptions controls AddSkill.

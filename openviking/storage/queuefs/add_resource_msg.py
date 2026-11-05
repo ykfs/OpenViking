@@ -59,6 +59,9 @@ class AddResourceMsg:
     parse_mode: str = "default"
     tags: Optional[list[str]] = None
     tag_mode: str = "replace"
+    # Confidence resolved by the request path; None for jobs that must not touch
+    # the stored value (scheduled refreshes and other internal re-ingestion).
+    confidence: Optional[float] = None
     internal_task: bool = False
 
     def __post_init__(self) -> None:
@@ -203,5 +206,11 @@ class AddResourceMsg:
             parse_mode=str(data.get("parse_mode") or "default"),
             tags=(list(data["tags"]) if isinstance(data.get("tags"), list) else None),
             tag_mode=str(data.get("tag_mode") or "replace"),
+            confidence=(
+                float(data["confidence"])
+                if isinstance(data.get("confidence"), (int, float))
+                and not isinstance(data.get("confidence"), bool)
+                else None
+            ),
             internal_task=bool(data.get("internal_task", False)),
         )

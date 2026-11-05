@@ -399,7 +399,7 @@ manifest 只保存包结构、文件 checksum 和内部索引文件的 checksum�
 默认会导出可迁移的索引标量：
 
 ```text
-type, context_type, level, name, description, tags, abstract
+type, context_type, level, name, description, tags, abstract, confidence
 ```
 
 这些字段不会从包里直接恢复，而是在目标环境重新生成：

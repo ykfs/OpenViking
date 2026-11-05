@@ -507,6 +507,8 @@ const resources = {
     },
     detail: {
       score: '相关度',
+      rawScore: '未加权原始分',
+      confidence: '置信度',
       level: '层级',
       openPlayground: '在工作台中打开',
       uri: 'URI',
@@ -520,6 +522,8 @@ const resources = {
       line: '第 {{line}} 行',
       lineLabel: '行号',
       score: '相关度',
+      rawScore: '未加权原始分',
+      confidence: '置信度',
       uri: 'URI',
       description: '描述',
       provenance: '检索过程（{{count}}）',

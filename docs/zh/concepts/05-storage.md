@@ -111,6 +111,7 @@ viking://resources/docs/auth/
 | `description` | string | 描述 |
 | `created_at` | string | 创建时间 |
 | `active_count` | int64 | 使用次数 |
+| `confidence` | float32 | 人工置信度，闭区间 `[0.0, 1.0]`，默认 `1.0`；`1.0` 表示未标注、不折扣，`0.0` 表示最强降权（排序分压到自身的 80%），不表示排除该记录 |
 
 ### 索引策略
 

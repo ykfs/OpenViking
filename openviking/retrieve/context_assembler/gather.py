@@ -22,6 +22,7 @@ from openviking.retrieve.context_assembler.params import (
     REPORTED_CATEGORY_KEYS,
 )
 from openviking.server.identity import RequestContext
+from openviking.utils.confidence import coerce_confidence_for_read
 from openviking.utils.search_filters import merge_context_type_filter
 from openviking_cli.exceptions import InvalidArgumentError
 from openviking_cli.retrieve import ContextType
@@ -43,6 +44,8 @@ class Candidate:
     origin: str
     is_directory: bool
     read_ctx: RequestContext
+    confidence: float = 1.0
+    raw_score: float = 0.0
 
 
 def _get_attr(obj: Any, name: str, default: Any = None) -> Any:
@@ -240,6 +243,8 @@ async def gather_candidates(
             category = category_for(item, bucket)
             origin = origin_for_uri(base_uri, ctx.actor_peer_id, user_root)
             score = _score(item)
+            item_raw_score = _get_attr(item, "raw_score", None)
+            raw_score = score if item_raw_score is None else float(item_raw_score)
             penalty = penalties.get(category, 0.0) if origin == "other_peer" else 0.0
             built.append(
                 Candidate(
@@ -253,6 +258,8 @@ async def gather_candidates(
                     origin=origin,
                     is_directory=is_directory,
                     read_ctx=open_ctx if origin == "other_peer" else ctx,
+                    confidence=coerce_confidence_for_read(_get_attr(item, "confidence")),
+                    raw_score=raw_score,
                 )
             )
         return built

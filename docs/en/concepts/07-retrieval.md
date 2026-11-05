@@ -170,7 +170,9 @@ class MatchedContext:
     context_type: ContextType
     is_leaf: bool           # Whether file
     abstract: str           # L0 abstract
-    score: float            # Final score
+    score: float            # Weighted ranking score = raw_score * (1 - 0.2 * (1 - confidence))
+    raw_score: float        # Unweighted retrieval score (the pre-change score); gating uses it
+    confidence: float       # Human confidence in [0.0, 1.0], defaults to 1.0
 ```
 
 ### FindResult

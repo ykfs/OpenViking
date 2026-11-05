@@ -112,6 +112,7 @@ The vector index stores semantic indices, supporting vector search and scalar fi
 | `description` | string | Description |
 | `created_at` | string | Creation time |
 | `active_count` | int64 | Usage count |
+| `confidence` | float32 | Human confidence in the closed interval `[0.0, 1.0]`, default `1.0`; `1.0` means unannotated/no discount and `0.0` is the strongest down-weight (the ranking score compressed to 80% of itself), not exclusion |
 
 ### Index Strategy
 

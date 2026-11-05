@@ -90,6 +90,12 @@ export interface AddResourceOptions extends WaitOptions {
   args?: JsonObject;
   tags?: string[];
   tagMode?: "replace" | "append";
+  /**
+   * Human confidence for the imported content, in the closed range [0, 1].
+   * Omit it to leave the server default of 1.0. 0 is the strongest down-weight
+   * and does not exclude the resource.
+   */
+  confidence?: number;
   extra?: JsonObject;
 }
 /** Content write options. */

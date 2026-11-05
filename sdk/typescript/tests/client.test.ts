@@ -1210,3 +1210,51 @@ describe("OpenVikingClient", () => {
     });
   });
 });
+
+describe("addResource confidence", () => {
+  it("sends explicit confidence", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(ok({}));
+    const client = new OpenVikingClient({
+      baseUrl: "https://example.com",
+      fetch: fetcher,
+    });
+
+    await client.addResource("https://example.com/demo.md", {
+      confidence: 0.4,
+    });
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+      confidence: 0.4,
+    });
+  });
+
+  it("keeps an explicit zero confidence", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(ok({}));
+    const client = new OpenVikingClient({
+      baseUrl: "https://example.com",
+      fetch: fetcher,
+    });
+
+    await client.addResource("https://example.com/demo.md", {
+      confidence: 0,
+    });
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+      confidence: 0,
+    });
+  });
+
+  it("omits confidence when unset", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(ok({}));
+    const client = new OpenVikingClient({
+      baseUrl: "https://example.com",
+      fetch: fetcher,
+    });
+
+    await client.addResource("https://example.com/demo.md");
+
+    expect(
+      JSON.parse(String(fetcher.mock.calls[0]![1]?.body)),
+    ).not.toHaveProperty("confidence");
+  });
+});

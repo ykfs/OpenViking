@@ -2622,3 +2622,107 @@ async def test_single_account_backend_query_runs_adapter_in_threadpool(monkeypat
     assert isinstance(query_filter, Eq)
     assert query_filter.field == "account_id"
     assert query_filter.value == "acc1"
+
+
+def test_context_collection_declares_confidence_with_default_one():
+    """The default must be explicit: the generic float32 default is 0.0, which
+    would zero out the ranking score of every unannotated record."""
+    schema = CollectionSchemas.context_collection("ctx", 8)
+
+    field = next(item for item in schema["Fields"] if item["FieldName"] == "confidence")
+
+    assert field["FieldType"] == "float32"
+    assert field["DefaultValue"] == 1.0
+
+
+def test_context_collection_confidence_is_not_scalar_indexed():
+    """No server-side filtering by confidence is implemented, so no index is added."""
+    schema = CollectionSchemas.context_collection("ctx", 8)
+
+    assert "confidence" not in schema["ScalarIndex"]
+
+
+@pytest.mark.asyncio
+async def test_init_context_collection_warns_when_confidence_field_missing(monkeypatch, caplog):
+    """A collection created before the field existed must be reported loudly."""
+
+    class _FakeStorage:
+        async def create_collection(self, name, schema):
+            del name, schema
+            return False
+
+        async def get_collection_meta(self):
+            return {
+                "Description": "Unified context collection",
+                "Fields": [{"FieldName": "id"}, {"FieldName": "uri"}],
+            }
+
+        async def count(self):
+            return 0
+
+        async def update_collection_description(self, description):
+            del description
+            return True
+
+    monkeypatch.setattr(
+        "openviking_cli.utils.config.get_openviking_config",
+        lambda: _DummyConfig(_DummyEmbedder()),
+    )
+
+    import openviking.storage.collection_schemas as collection_schemas
+
+    collection_schemas.logger.addHandler(caplog.handler)
+    collection_schemas.logger.setLevel(logging.WARNING)
+    try:
+        with caplog.at_level(logging.WARNING):
+            await init_context_collection(_FakeStorage())
+    finally:
+        collection_schemas.logger.removeHandler(caplog.handler)
+
+    warnings = [
+        record.getMessage() for record in caplog.records if record.levelno == logging.WARNING
+    ]
+    assert any("confidence" in message and "context" in message for message in warnings)
+
+
+@pytest.mark.asyncio
+async def test_init_context_collection_silent_when_confidence_field_present(monkeypatch, caplog):
+    """A current collection must not emit the missing-field warning."""
+
+    class _FakeStorage:
+        async def create_collection(self, name, schema):
+            del name, schema
+            return False
+
+        async def get_collection_meta(self):
+            return {
+                "Description": "Unified context collection",
+                "Fields": [{"FieldName": "id"}, {"FieldName": "confidence"}],
+            }
+
+        async def count(self):
+            return 0
+
+        async def update_collection_description(self, description):
+            del description
+            return True
+
+    monkeypatch.setattr(
+        "openviking_cli.utils.config.get_openviking_config",
+        lambda: _DummyConfig(_DummyEmbedder()),
+    )
+
+    import openviking.storage.collection_schemas as collection_schemas
+
+    collection_schemas.logger.addHandler(caplog.handler)
+    collection_schemas.logger.setLevel(logging.WARNING)
+    try:
+        with caplog.at_level(logging.WARNING):
+            await init_context_collection(_FakeStorage())
+    finally:
+        collection_schemas.logger.removeHandler(caplog.handler)
+
+    warnings = [
+        record.getMessage() for record in caplog.records if record.levelno == logging.WARNING
+    ]
+    assert not any("lacks the" in message for message in warnings)

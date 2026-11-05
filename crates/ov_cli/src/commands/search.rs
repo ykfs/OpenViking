@@ -426,6 +426,13 @@ fn render_search_result_card(
         if let Some(score) = search_result_score(object) {
             metadata.push(theme::warning(score).bold().to_string());
         }
+
+        // The weighted score alone cannot tell whether a low rank comes from
+        // weak relevance or from a low confidence annotation, so the unweighted
+        // score and the confidence that produced it are shown alongside it.
+        if let Some(detail) = search_result_confidence_detail(object) {
+            metadata.push(theme::value(detail).to_string());
+        }
     }
 
     lines.push(format!(
@@ -591,12 +598,35 @@ fn normalize_level_value(level: &str) -> &str {
 
 fn search_result_score(object: Option<&serde_json::Map<String, Value>>) -> Option<String> {
     let value = object?.get("score")?;
-    let score = value.as_f64().or_else(|| {
+    let score = search_result_number(value)?;
+    Some(format!("score {score:.3}"))
+}
+
+/// Unweighted score and confidence behind the displayed `score`. Records written
+/// before the confidence field existed carry neither key, so they read back as
+/// "unweighted score equals the weighted score" and "fully trusted".
+fn search_result_confidence_detail(
+    object: Option<&serde_json::Map<String, Value>>,
+) -> Option<String> {
+    let object = object?;
+    let score = search_result_number(object.get("score")?)?;
+    let raw_score = object
+        .get("raw_score")
+        .and_then(search_result_number)
+        .unwrap_or(score);
+    let confidence = object
+        .get("confidence")
+        .and_then(search_result_number)
+        .unwrap_or(1.0);
+    Some(format!("raw {raw_score:.3} · conf {confidence:.3}"))
+}
+
+fn search_result_number(value: &Value) -> Option<f64> {
+    value.as_f64().or_else(|| {
         value
             .as_str()
             .and_then(|value| value.trim().parse::<f64>().ok())
-    })?;
-    Some(format!("score {score:.3}"))
+    })
 }
 
 fn search_result_uri(object: Option<&serde_json::Map<String, Value>>) -> Option<&str> {

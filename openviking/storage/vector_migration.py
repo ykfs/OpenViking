@@ -32,6 +32,7 @@ VECTOR_MIGRATION_OUTPUT_FIELDS = [
     "abstract",
     "account_id",
     "owner_user_id",
+    "confidence",
 ]
 
 _VECTOR_PAYLOAD_FIELDS = ("vector", "sparse_vector")

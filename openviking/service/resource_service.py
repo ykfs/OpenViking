@@ -65,6 +65,7 @@ from openviking.telemetry.resource_summary import (
     build_queue_status_payload,
 )
 from openviking.utils import is_git_repo_url, parse_code_hosting_url
+from openviking.utils.confidence import normalize_confidence_for_write
 from openviking.utils.git_auth import (
     GitHttpAuthConfig,
     build_git_http_auth_env,
@@ -135,6 +136,7 @@ _ADD_RESOURCE_ARGS_RESERVED_FIELDS = frozenset(
         "prepared_resource",
         "tags",
         "tag_mode",
+        "confidence",
         "internal_task",
     }
 )
@@ -285,15 +287,23 @@ class ResourceService:
         if tags is not None and tag_mode not in _ADD_RESOURCE_TAG_MODES:
             raise InvalidArgumentError(f"unsupported tag mode: {tag_mode}")
 
-    def _add_resource_ingest_tag_kwargs(
+    def _add_resource_ingest_options(
         self,
         *,
         tags: Optional[List[str]],
         tag_mode: str,
+        confidence: Optional[float] = None,
     ) -> Dict[str, Any]:
-        if tags is None:
+        if tags is None and confidence is None:
             return {}
-        return {"ingest_options": IngestOptions.from_search_tags(tags, mode=tag_mode)}
+        base = IngestOptions.from_search_tags(tags, mode=tag_mode)
+        return {
+            "ingest_options": IngestOptions(
+                search_tags=base.search_tags,
+                search_tag_mode=base.search_tag_mode,
+                confidence=confidence,
+            )
+        }
 
     @staticmethod
     def _ensure_single_resource_target(
@@ -727,6 +737,7 @@ class ResourceService:
                     manage_watch=not msg.skip_watch_management,
                     tags=msg.tags,
                     tag_mode=msg.tag_mode,
+                    confidence=msg.confidence,
                     allow_local_path_resolution=msg.allow_local_path_resolution,
                     enforce_public_remote_targets=msg.enforce_public_remote_targets,
                     resource_lock=resource_lock,
@@ -771,9 +782,10 @@ class ResourceService:
             summarize=msg.summarize,
             build_index=msg.build_index,
             processing_mode=msg.processing_mode,
-            **self._add_resource_ingest_tag_kwargs(
+            **self._add_resource_ingest_options(
                 tags=msg.tags,
                 tag_mode=msg.tag_mode,
+                confidence=msg.confidence,
             ),
         )
 
@@ -1029,6 +1041,7 @@ class ResourceService:
         manage_watch: bool,
         tags: Optional[List[str]],
         tag_mode: str,
+        confidence: Optional[float],
         to_is_directory: Optional[bool],
         allow_local_path_resolution: bool,
         enforce_public_remote_targets: bool,
@@ -1100,6 +1113,7 @@ class ResourceService:
                 skip_watch_management=not manage_watch,
                 tags=tags,
                 tag_mode=tag_mode,
+                confidence=confidence,
                 allow_local_path_resolution=(
                     True if plan.staged_source is not None else allow_local_path_resolution
                 ),
@@ -1299,6 +1313,7 @@ class ResourceService:
         watch_interval: float = 0,
         tags: Optional[List[str]] = None,
         tag_mode: str = "replace",
+        confidence: Optional[float] = None,
         allow_local_path_resolution: bool = True,
         enforce_public_remote_targets: bool = False,
         add_type: Optional[str] = None,
@@ -1315,6 +1330,11 @@ class ResourceService:
             )
         if isinstance(add_type, str):
             add_type = add_type.strip() or None
+        # Resolve the writer-supplied confidence here and nowhere else: this is the
+        # only entry point whose caller owns the value, and it must always carry an
+        # explicit number so re-importing a resource resets a previous annotation.
+        # Refresh and watch paths deliberately pass nothing through.
+        normalized_confidence = normalize_confidence_for_write(confidence)
         return await self._submit_resource_ingestion(
             path=path,
             ctx=ctx,
@@ -1332,6 +1352,7 @@ class ResourceService:
             manage_watch=True,
             tags=tags,
             tag_mode=tag_mode,
+            confidence=normalized_confidence,
             allow_local_path_resolution=allow_local_path_resolution,
             enforce_public_remote_targets=enforce_public_remote_targets,
             internal_task=internal_task,
@@ -1360,6 +1381,9 @@ class ResourceService:
         **kwargs,
     ) -> Dict[str, Any]:
         """Submit a scheduled refresh without changing its watch task."""
+        # No confidence is forwarded here on purpose: a refresh must keep whatever
+        # confidence the resource already carries, so the update leaves the field
+        # out and the stored value survives.
         return await self._submit_resource_ingestion(
             path=path,
             ctx=ctx,
@@ -1401,6 +1425,7 @@ class ResourceService:
         manage_watch: bool = True,
         tags: Optional[List[str]] = None,
         tag_mode: str = "replace",
+        confidence: Optional[float] = None,
         parse_mode: ParseMode | str | None = None,
         allow_local_path_resolution: bool = True,
         enforce_public_remote_targets: bool = False,
@@ -1616,6 +1641,7 @@ class ResourceService:
                 connector_args=normalized_args.processor_kwargs,
                 tags=tags,
                 tag_mode=tag_mode,
+                confidence=confidence,
                 wait_for_completion=not manage_watch and watch_interval > 0,
                 on_success=on_success,
                 **kwargs,
@@ -1672,6 +1698,7 @@ class ResourceService:
                 manage_watch=manage_watch,
                 tags=tags,
                 tag_mode=tag_mode,
+                confidence=confidence,
                 to_is_directory=to_is_directory,
                 allow_local_path_resolution=allow_local_path_resolution,
                 enforce_public_remote_targets=enforce_public_remote_targets,
@@ -1697,6 +1724,7 @@ class ResourceService:
                 manage_watch=manage_watch,
                 tags=tags,
                 tag_mode=tag_mode,
+                confidence=confidence,
                 allow_local_path_resolution=allow_local_path_resolution,
                 enforce_public_remote_targets=enforce_public_remote_targets,
                 watch_auth_state=normalized_args.watch_auth_state,
@@ -1751,6 +1779,7 @@ class ResourceService:
         manage_watch: bool = True,
         tags: Optional[List[str]] = None,
         tag_mode: str = "replace",
+        confidence: Optional[float] = None,
         allow_local_path_resolution: bool = True,
         enforce_public_remote_targets: bool = False,
         watch_auth_state: Optional[Dict[str, Any]] = None,
@@ -1771,9 +1800,10 @@ class ResourceService:
         register_telemetry(telemetry)
         job_enqueued = False
         deferred_lock: Optional[Dict[str, Any]] = None
-        ingest_tag_kwargs = self._add_resource_ingest_tag_kwargs(
+        ingest_tag_kwargs = self._add_resource_ingest_options(
             tags=tags,
             tag_mode=tag_mode,
+            confidence=confidence,
         )
         watch_manager = self._get_watch_manager()
         watch_enabled = bool(watch_manager and manage_watch and watch_interval > 0)
@@ -1888,6 +1918,7 @@ class ResourceService:
                     skip_watch_management=True,
                     tags=tags,
                     tag_mode=tag_mode,
+                    confidence=confidence,
                     internal_task=internal_task,
                 )
                 enqueue_lock = deferred_lock

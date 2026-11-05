@@ -100,6 +100,18 @@ export function RetrievalDetailSheet({
             value={detail?.score.toFixed(3) ?? '0'}
           />
           {detail?.item ? (
+            <>
+              <MetaBadge
+                label={t('detail.rawScore')}
+                value={detail.item.raw_score.toFixed(3)}
+              />
+              <MetaBadge
+                label={t('detail.confidence')}
+                value={detail.item.confidence.toFixed(3)}
+              />
+            </>
+          ) : null}
+          {detail?.item ? (
             <MetaText
               label={t('detail.level')}
               value={`L${detail.item.level}`}

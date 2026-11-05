@@ -40,6 +40,7 @@ from openviking.utils.circuit_breaker import (
     CircuitBreakerOpen,
     classify_api_error,
 )
+from openviking.utils.confidence import CONFIDENCE_FIELD
 from openviking.utils.model_retry import (
     ERROR_CLASS_AUTH,
     ERROR_CLASS_INPUT_TOO_LARGE,
@@ -116,6 +117,11 @@ class CollectionSchemas:
                 {"FieldName": "description", "FieldType": "string"},
                 {"FieldName": "tags", "FieldType": "string"},
                 {"FieldName": "search_tags", "FieldType": "list<string>"},
+                # confidence 字段：人工标注的资源可信度，闭区间 [0.0, 1.0]，
+                # 检索时按 score = raw_score * (1 - lambda * (1 - confidence)) 折扣排序分。
+                # DefaultValue 必须显式写成 1.0：vectordb 的 data_processor 对 float32
+                # 的类型默认值是 0.0，缺省会把未标注记录的分数清零。
+                {"FieldName": "confidence", "FieldType": "float32", "DefaultValue": 1.0},
                 {"FieldName": "abstract", "FieldType": "string"},
                 {"FieldName": "content", "FieldType": "text"},
                 {"FieldName": "account_id", "FieldType": "string"},
@@ -317,6 +323,19 @@ async def init_context_collection(storage) -> bool:
     if not existing_meta:
         raise EmbeddingConfigurationError(
             "Existing collection metadata is unavailable; cannot validate embedding compatibility"
+        )
+
+    # 存量集合可能缺少 confidence 字段。集合只在不存在时创建，且没有自动
+    # schema 迁移，因此这里必须给出可观测信号，而不是让后续携带该字段的写入
+    # 被字段过滤静默丢弃。
+    existing_fields = {item.get("FieldName") for item in (existing_meta.get("Fields") or [])}
+    if existing_fields and CONFIDENCE_FIELD not in existing_fields:
+        logger.warning(
+            "Existing collection %s lacks the '%s' field; resources imported with a "
+            "confidence value will have that value dropped. Recreate the collection "
+            "(or add the field out of band) to enable resource confidence.",
+            collection_name,
+            CONFIDENCE_FIELD,
         )
 
     base_description, existing_embedding_meta = _decode_collection_description(

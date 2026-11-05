@@ -36,6 +36,7 @@ def render_entry(entry: AssembledEntry) -> str:
     head = (
         f'<memory uri="{_attr(entry.uri)}" type="{_attr(entry.category)}"'
         f' score="{entry.score:.2f}" detail="{entry.detail}"'
+        f' raw_score="{entry.raw_score:.2f}" confidence="{entry.confidence:.2f}"'
     )
     if not entry.text:
         return f"{head} />"

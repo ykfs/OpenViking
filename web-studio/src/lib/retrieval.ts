@@ -15,6 +15,8 @@ export interface FindResultItem {
   context_type: FindContextType
   level: number
   score: number
+  raw_score: number
+  confidence: number
   abstract: string
   overview?: string | null
   category: string
@@ -112,6 +114,7 @@ function normalizeFindItems(
     .map((item) => ({
       abstract: typeof item.abstract === 'string' ? item.abstract : '',
       category: typeof item.category === 'string' ? item.category : '',
+      confidence: typeof item.confidence === 'number' ? item.confidence : 1,
       context_type: isFindContextType(item.context_type)
         ? item.context_type
         : fallbackType,
@@ -119,6 +122,7 @@ function normalizeFindItems(
       match_reason:
         typeof item.match_reason === 'string' ? item.match_reason : '',
       overview: typeof item.overview === 'string' ? item.overview : null,
+      raw_score: typeof item.raw_score === 'number' ? item.raw_score : 0,
       score: typeof item.score === 'number' ? item.score : 0,
       uri: typeof item.uri === 'string' ? item.uri : '',
     }))
@@ -290,10 +294,12 @@ function patternResultItem(
   return {
     abstract: options.content ?? '',
     category: '',
+    confidence: 1,
     context_type: 'resource',
     level: 2,
     line: options.line,
     match_reason: '',
+    raw_score: 0,
     result_kind: kind,
     score: 0,
     uri,

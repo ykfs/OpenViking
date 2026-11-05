@@ -235,6 +235,8 @@ def _skill_summary_from_hit(hit: Dict[str, Any]) -> Dict[str, Any]:
         name, root_uri or hit_uri, _parse_abstract_meta(hit.get("abstract", ""))
     )
     summary["score"] = hit.get("score", 0.0)
+    summary["raw_score"] = hit.get("raw_score", 0.0)
+    summary["confidence"] = hit.get("confidence", 1.0)
     summary["match_reason"] = hit.get("match_reason", "")
     summary["level"] = hit.get("level", 0)
     summary["abstract"] = hit.get("abstract", "")

@@ -431,7 +431,7 @@ float values from float offset 0.
 By default, export stores portable index scalar fields:
 
 ```text
-type, context_type, level, name, description, tags, abstract
+type, context_type, level, name, description, tags, abstract, confidence
 ```
 
 These fields are regenerated in the target environment and are not restored

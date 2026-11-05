@@ -245,18 +245,23 @@ ov -o json config list
 ## 示例
 
 ```bash
-# 添加 URL 并等待处理完成
-ov add-resource https://example.com/docs --wait --timeout 60
+# 添加 URL 并等待处理完成，标注为置信度较低的网页内容
+ov add-resource https://example.com/docs --wait --timeout 60 --confidence 0.6
 
-# 添加本地目录并过滤文件
+# 添加本地目录并过滤文件，标注为人工确认过的内容
 ov add-resource ./dir \
   --wait --timeout 600 \
+  --confidence 0.9 \
   --ignore-dirs "node_modules,dist" \
   --include "*.md,*.py" \
   --exclude "*.tmp,*.log"
 
-# 导入到可预测的父路径
-ov add-resource ./docs -p "viking://resources/docs/{calendar:today}" --wait
+# 导入到可预测的父路径，并压低其排序分
+ov add-resource ./docs -p "viking://resources/docs/{calendar:today}" --confidence 0.5 --wait
+
+# --confidence 可选，缺省 1.0（不折扣），取值为闭区间 [0.0, 1.0]：1.0 表示未标注、不折扣，
+# 0.0 表示最强降权（排序分压到自身的 80%），不表示排除该资源。越界或非数字会被服务端拒绝。
+# 对同一 URI 重新导入且不带 --confidence 时，置信度会被重置为 1.0。
 
 # 带过滤条件的搜索
 ov find "API authentication" --threshold 0.7 --limit 5
@@ -290,7 +295,7 @@ ov session add-message "$SESSION" --role user --content "Hello"
 ov session commit "$SESSION"
 
 # Watch 任务管理
-ov add-resource https://example.com/docs --to viking://resources/docs --watch-interval 60
+ov add-resource https://example.com/docs --to viking://resources/docs --watch-interval 60 --confidence 0.8
 ov task watch ls
 ov task watch trigger viking://resources/docs
 ```

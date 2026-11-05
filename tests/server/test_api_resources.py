@@ -1097,3 +1097,57 @@ async def test_add_resource_non_wait_queue_task_queryable(
     assert result["task_id"] == task_id
     assert result["task_type"] == "add_resource"
     assert result["status"] in {"running", "completed", "failed"}
+
+
+async def test_add_resource_forwards_confidence_to_service(
+    client: httpx.AsyncClient,
+    service,
+    monkeypatch,
+):
+    seen = {}
+
+    async def fake_add_resource(**kwargs):
+        seen.update(kwargs)
+        return {"status": "success", "root_uri": "viking://resources/demo"}
+
+    monkeypatch.setattr(service.resources, "add_resource", fake_add_resource)
+
+    resp = await client.post(
+        "/api/v1/resources",
+        json={"path": "https://example.com/demo.md", "confidence": 0.6},
+    )
+
+    assert resp.status_code == 200
+    assert seen["confidence"] == 0.6
+
+
+async def test_add_resource_passes_none_confidence_when_absent(
+    client: httpx.AsyncClient,
+    service,
+    monkeypatch,
+):
+    """The route stays a pass-through; the service resolves the default."""
+    seen = {}
+
+    async def fake_add_resource(**kwargs):
+        seen.update(kwargs)
+        return {"status": "success", "root_uri": "viking://resources/demo"}
+
+    monkeypatch.setattr(service.resources, "add_resource", fake_add_resource)
+
+    resp = await client.post(
+        "/api/v1/resources",
+        json={"path": "https://example.com/demo.md"},
+    )
+
+    assert resp.status_code == 200
+    assert seen["confidence"] is None
+
+
+def test_add_resource_request_model_declares_confidence():
+    from openviking.server.routers.resources import AddResourceRequest
+
+    field = AddResourceRequest.model_fields["confidence"]
+
+    assert field.default is None
+    assert "float" in str(field.annotation)

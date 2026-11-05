@@ -49,6 +49,18 @@ fn add_resource_tag_fields(body: &mut Value, tags: &[String], tag_mode: &str) {
     obj.insert("tag_mode".to_string(), serde_json::json!(tag_mode));
 }
 
+/// Attach the human confidence to the import body. An omitted flag stays absent
+/// so servers predating the field keep accepting the request, while an explicit
+/// `0.0` is a meaningful value and must be sent as-is.
+fn add_resource_confidence_field(body: &mut Value, confidence: Option<f64>) {
+    let Some(value) = confidence else {
+        return;
+    };
+    body.as_object_mut()
+        .expect("add_resource request body must be an object")
+        .insert("confidence".to_string(), serde_json::json!(value));
+}
+
 fn normalize_image_input(image: Option<String>) -> Result<Option<String>> {
     let Some(value) = image else {
         return Ok(None);
@@ -810,6 +822,9 @@ impl HttpClient {
 
     // ============ Resource Methods ============
 
+    /// Import a resource. ``confidence`` is ``None`` when the caller has no
+    /// annotation to carry, in which case the field is left out of the request
+    /// body entirely so older servers keep accepting it.
     pub async fn add_resource(
         &self,
         path: &str,
@@ -831,6 +846,7 @@ impl HttpClient {
         resource_args: Option<Map<String, Value>>,
         tags: Vec<String>,
         tag_mode: String,
+        confidence: Option<f64>,
         show_progress: bool,
         verbose: bool,
     ) -> Result<serde_json::Value> {
@@ -851,6 +867,7 @@ impl HttpClient {
         let build_body = |base: serde_json::Value| {
             let mut body = base;
             add_resource_tag_fields(&mut body, &tags, &tag_mode);
+            add_resource_confidence_field(&mut body, confidence);
             if create_parent {
                 body.as_object_mut()
                     .expect("add_resource request body must be an object")
@@ -2048,6 +2065,24 @@ mod tests {
         assert!(body.as_object().unwrap().contains_key("args"));
     }
 
+    #[test]
+    fn add_resource_confidence_field_adds_value() {
+        let mut body = json!({"path": "https://example.com/x.md"});
+
+        super::add_resource_confidence_field(&mut body, Some(0.6));
+
+        assert_eq!(body["confidence"], json!(0.6));
+    }
+
+    #[test]
+    fn add_resource_confidence_field_omits_none() {
+        let mut body = json!({"path": "https://example.com/x.md"});
+
+        super::add_resource_confidence_field(&mut body, None);
+
+        assert!(!body.as_object().unwrap().contains_key("confidence"));
+    }
+
     #[tokio::test]
     async fn add_resource_sends_parse_mode_through_args() {
         let (default_url, default_request_rx) = spawn_request_capture_server().await;
@@ -2073,6 +2108,7 @@ mod tests {
                 None,
                 Vec::new(),
                 "replace".to_string(),
+                None,
                 false,
                 false,
             )
@@ -2109,6 +2145,7 @@ mod tests {
                 Some(no_split_args),
                 Vec::new(),
                 "replace".to_string(),
+                None,
                 false,
                 false,
             )

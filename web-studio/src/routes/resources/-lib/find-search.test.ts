@@ -89,6 +89,8 @@ describe('retrievalItemsToEntries', () => {
       context_type: 'resources',
       level: 0,
       score: 0,
+      raw_score: 0,
+      confidence: 1,
       abstract: '',
       category: '',
       match_reason: '',

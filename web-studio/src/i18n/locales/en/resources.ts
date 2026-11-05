@@ -527,6 +527,8 @@ const resources = {
     },
     detail: {
       score: 'Score',
+      rawScore: 'Unweighted score',
+      confidence: 'Confidence',
       level: 'Level',
       openPlayground: 'Open in Playground',
       uri: 'URI',
@@ -540,6 +542,8 @@ const resources = {
       line: 'Line {{line}}',
       lineLabel: 'Line',
       score: 'Score',
+      rawScore: 'Unweighted score',
+      confidence: 'Confidence',
       uri: 'URI',
       description: 'Description',
       provenance: 'Retrieval provenance ({{count}})',

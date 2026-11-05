@@ -273,9 +273,12 @@ class TestWatchTaskCreation:
         )
 
         assert "tags_result" not in result
+        # add_resource always carries an explicit confidence (1.0 when the caller
+        # does not supply one), so re-importing a resource resets an annotation.
         assert resource_service._resource_processor.calls[-1]["ingest_options"] == IngestOptions(
             search_tags=["team=search"],
             search_tag_mode="append",
+            confidence=1.0,
         )
 
     @pytest.mark.asyncio

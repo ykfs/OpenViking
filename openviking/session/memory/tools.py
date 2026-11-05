@@ -41,7 +41,15 @@ def optimize_search_result(result: Any, limit: int = 10) -> Any:
                 or item.get("uri", "").endswith(".overview.md")
             )
         ]
-        return [{"uri": item["uri"], "score": item["score"]} for item in filtered[:limit]]
+        return [
+            {
+                "uri": item["uri"],
+                "score": item["score"],
+                "raw_score": item.get("raw_score", 0.0),
+                "confidence": item.get("confidence", 1.0),
+            }
+            for item in filtered[:limit]
+        ]
     return []
 
 

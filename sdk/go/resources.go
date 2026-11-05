@@ -49,6 +49,7 @@ func (c *Client) AddResource(ctx context.Context, path string, opts *AddResource
 			payload["tag_mode"] = opts.TagMode
 		}
 	}
+	setFloatPtr(payload, "confidence", opts.Confidence)
 	if err := c.addLocalUpload(ctx, payload, path, true); err != nil {
 		return nil, err
 	}

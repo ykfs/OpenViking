@@ -32,6 +32,7 @@ from openviking.storage.queuefs import get_queue_manager
 from openviking.storage.queuefs.embedding_msg_converter import EmbeddingMsgConverter
 from openviking.storage.viking_fs import LS_ALL_NODES, get_viking_fs
 from openviking.telemetry.request_wait_tracker import get_request_wait_tracker
+from openviking.utils.confidence import CONFIDENCE_FIELD, coerce_confidence_for_read
 from openviking.utils.embedding_input import truncate_embedding_input
 from openviking.utils.image_search import image_bytes_to_model_data_uri
 from openviking.utils.ingest_options import IngestOptions
@@ -70,6 +71,7 @@ _PORTABLE_SCALAR_FIELDS = frozenset(
         "description",
         "tags",
         "abstract",
+        "confidence",
     }
 )
 
@@ -88,12 +90,20 @@ def _apply_ingest_options(
     ingest_options: IngestOptions | None,
 ) -> None:
     ingest_options = IngestOptions.from_value(ingest_options)
-    if not embedding_msg or ingest_options.search_tags is None:
+    if not embedding_msg:
         return
-    embedding_msg.context_data["search_tags"] = list(ingest_options.search_tags or [])
-    embedding_msg.context_data["_upsert_options"] = {
-        "search_tag_mode": ingest_options.search_tag_mode
-    }
+    if ingest_options.search_tags is not None:
+        embedding_msg.context_data["search_tags"] = list(ingest_options.search_tags or [])
+        embedding_msg.context_data["_upsert_options"] = {
+            "search_tag_mode": ingest_options.search_tag_mode
+        }
+    # Only write when the caller carried a value. A partial update that omits the
+    # key keeps whatever is already stored, which is what rewrite and re-index
+    # paths rely on to preserve human annotations.
+    if ingest_options.confidence is not None:
+        embedding_msg.context_data[CONFIDENCE_FIELD] = coerce_confidence_for_read(
+            ingest_options.confidence
+        )
 
 
 async def _enqueue_embedding_message(

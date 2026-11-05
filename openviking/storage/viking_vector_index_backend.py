@@ -39,6 +39,7 @@ RETRIEVAL_OUTPUT_FIELDS = [
     "active_count",
     "updated_at",
     "search_tags",
+    "confidence",
 ]
 
 LOOKUP_OUTPUT_FIELDS = [
@@ -63,6 +64,7 @@ FETCH_BY_URI_OUTPUT_FIELDS = [
     "abstract",
     "account_id",
     "owner_user_id",
+    "confidence",
 ]
 
 VIKINGDB_CONTENT_MAX_SIZE = 1024 * 1024

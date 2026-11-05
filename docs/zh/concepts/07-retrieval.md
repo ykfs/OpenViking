@@ -170,7 +170,9 @@ class MatchedContext:
     context_type: ContextType
     is_leaf: bool           # 是否文件
     abstract: str           # L0 摘要
-    score: float            # 最终分数
+    score: float            # 加权排序分 = raw_score × (1 - 0.2 × (1 - confidence))
+    raw_score: float        # 未加权检索分（等于改造前的 score），相关性门槛只作用于它
+    confidence: float       # 人工置信度，闭区间 [0.0, 1.0]，缺省 1.0
 ```
 
 ### FindResult

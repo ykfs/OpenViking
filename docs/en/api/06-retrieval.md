@@ -104,9 +104,21 @@ class MatchedContext:
     abstract: str                    # L0 content
     overview: Optional[str]          # L1 overview (optional for non-leaf nodes)
     category: str                    # Category
-    score: float                     # Relevance score (0-1)
+    score: float                     # Weighted ranking score = raw_score × (1 - 0.2 × (1 - confidence))
+    raw_score: float                 # Unweighted retrieval score (the pre-change score)
+    confidence: float                # Human confidence, default 1.0
     match_reason: str                # Why this matched
 ```
+
+**Result fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `score` | float | Weighted ranking score, used only for ranking and display: `score == raw_score × (1 - 0.2 × (1 - confidence))` |
+| `raw_score` | float | Unweighted retrieval score, equal to the `score` returned before this change; relevance gating applies to this value only |
+| `confidence` | float | Human confidence in the closed interval `[0.0, 1.0]`, default `1.0` |
+
+Every item returned by `find()` and `search(mode="list")`, and every entry in `search(mode="context")`'s `entries[]`, carries `raw_score` and `confidence` in addition to `score`. **Relevance gating uses the unweighted score; ranking and display use the weighted score.** `score_threshold` (as well as MCP `min_score` and CLI `-t/--threshold`) applies only to the unweighted retrieval score, so human confidence never participates in any gating decision; `score = raw_score × (1 - 0.2 × (1 - confidence))` is used only when ranking or displaying results. `confidence = 1.0` means unannotated/no discount; `confidence = 0.0` is the strongest down-weight (it compresses `score` to 80% of `raw_score`) and **never excludes the result**.
 
 #### 3. Usage Examples
 
@@ -758,6 +770,8 @@ curl -X POST http://localhost:1933/api/v1/search/search \
 | `entries[].category` | string | `events`/`entities`/`preferences`/`experiences`/`resources`/`skills`, or `memories` for a built-in memory type outside those four |
 | `entries[].detail` | string | Tier actually served: `full`, `overview`, `abstract` or `uri` |
 | `entries[].text` | string | Body for that tier; empty at the `uri` tier |
+| `entries[].raw_score` | float | Unweighted retrieval score, equal to the pre-change `score`; `entries[].score` is the weighted score used for ranking and display |
+| `entries[].confidence` | float | Human confidence in the closed interval `[0.0, 1.0]`, default `1.0` |
 | `rendered` | string | Flat XML context block, ready to inject; empty when rewrite reports `no_relevant` |
 | `digest` | string | Digest when the rewrite succeeded, empty string on failure or when the compressor reports no relevant memory |
 | `stats` | object | Budget usage, tier distribution, expansion and rewrite status (`off`, `ok`, `no_relevant`, `failed` or `timeout`), dedup ledger state; carries `retrieval_errors` when a retrieval scope failed, so a broken index is distinguishable from having no relevant memories |

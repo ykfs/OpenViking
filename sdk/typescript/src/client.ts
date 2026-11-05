@@ -156,6 +156,7 @@ export class OpenVikingClient {
           : undefined,
       tags: options.tags,
       tag_mode: options.tags ? options.tagMode : undefined,
+      confidence: options.confidence,
       telemetry: options.telemetry,
     });
     const local = await nodePathToBlob(source);

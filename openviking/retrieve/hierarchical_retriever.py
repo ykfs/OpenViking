@@ -26,6 +26,11 @@ from openviking.storage.abstract_overview import body_for_preview
 from openviking.storage.expr import FilterExpr
 from openviking.storage.vikingdb_manager import VikingDBManager, VikingDBManagerProxy
 from openviking.telemetry import get_current_telemetry
+from openviking.utils.confidence import (
+    CONFIDENCE_FIELD,
+    coerce_confidence_for_read,
+    confidence_factor,
+)
 from openviking.utils.tags import normalize_search_tags
 from openviking.utils.time_utils import parse_iso_datetime
 from openviking.utils.token_estimation import (
@@ -43,6 +48,13 @@ from openviking_cli.utils.config import RerankConfig, RetrievalConfig
 from openviking_cli.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Largest relative penalty a low confidence value may apply to a ranking score:
+# the discount factor stays within [1 - CONFIDENCE_PENALTY_LAMBDA, 1]. With 0.2,
+# two records can only swap places when their unweighted scores are within 20% of
+# each other, so a strong semantic match is never overtaken by a weak one merely
+# because the weak one is marked as high confidence.
+CONFIDENCE_PENALTY_LAMBDA = 0.2
 
 
 class RetrieverMode(str):
@@ -598,6 +610,12 @@ class HierarchicalRetriever:
         Blends semantic similarity with a hotness score derived from
         ``active_count`` and ``updated_at`` when configured. The blend weight
         is controlled by ``retrieval.hotness_alpha`` (0 disables the boost).
+
+        The blended value is reported as ``raw_score``. The ranking value
+        (``score``) additionally carries a bounded discount derived from the
+        record's human-assigned confidence. Threshold checks happen before this
+        method, so the discount never changes which records are returned, only
+        the order they come back in.
         """
         results = []
         for c in candidates:
@@ -621,11 +639,15 @@ class HierarchicalRetriever:
                     active_count=c.get("active_count", 0),
                     updated_at=updated_at_val,
                 )
-                final_score = (1 - alpha) * semantic_score + alpha * h_score
+                raw_score = (1 - alpha) * semantic_score + alpha * h_score
             else:
-                final_score = semantic_score
-            if not math.isfinite(final_score):
-                final_score = 0.0
+                raw_score = semantic_score
+            if not math.isfinite(raw_score):
+                raw_score = 0.0
+            confidence = coerce_confidence_for_read(c.get(CONFIDENCE_FIELD))
+            score = raw_score * confidence_factor(confidence, CONFIDENCE_PENALTY_LAMBDA)
+            if not math.isfinite(score):
+                score = 0.0
             level = c.get("level", 2)
             display_uri = self._append_level_suffix(c.get("uri", ""), level)
             abstract = c.get("abstract", "")
@@ -646,15 +668,18 @@ class HierarchicalRetriever:
                     level=level,
                     abstract=abstract,
                     category=c.get("category", ""),
-                    score=final_score,
+                    score=score,
+                    raw_score=raw_score,
+                    confidence=confidence,
                     search_tags=normalize_search_tags(
                         c.get("search_tags"), discard_invalid=True
                     ),
                 )
             )
 
-        # Re-sort by blended score so hotness boost can change ranking
-        results.sort(key=lambda x: x.score, reverse=True)
+        # Re-sort by blended score so hotness boost can change ranking, using the
+        # unweighted score to break ties deterministically.
+        results.sort(key=lambda x: (x.score, x.raw_score), reverse=True)
         return results
 
     @classmethod

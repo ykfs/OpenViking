@@ -21,12 +21,16 @@ class AssembledEntry:
     text: str = ""
     origin: str = ""
     tokens: int = 0
+    raw_score: float = 0.0
+    confidence: float = 1.0
 
     def to_dict(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {
             "uri": self.uri,
             "category": self.category,
             "score": self.score,
+            "raw_score": self.raw_score,
+            "confidence": self.confidence,
             "detail": self.detail,
             "text": self.text,
         }

@@ -225,7 +225,12 @@ class TestMemoryTools:
         )
 
         assert result == [
-            {"uri": "viking://user/test-account/test-user/memories/profile.md", "score": 0.9}
+            {
+                "uri": "viking://user/test-account/test-user/memories/profile.md",
+                "score": 0.9,
+                "raw_score": 0.0,
+                "confidence": 1.0,
+            }
         ]
         assert viking_fs.received_ctx is request_ctx
         assert viking_fs.received_target_uri == tool_ctx.default_search_uris

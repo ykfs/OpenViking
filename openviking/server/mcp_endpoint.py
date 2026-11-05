@@ -407,7 +407,12 @@ async def _format_search_result(result, *, service, ctx, read_content: bool = Fa
             getattr(m, "abstract", "") or getattr(m, "overview", "") or "(no abstract)"
         ).strip()
         score = getattr(m, "score", 0.0)
-        line = f"- [{ctx_type} {score * 100:.0f}%] {m.uri}\n    {abstract}"
+        confidence = getattr(m, "confidence", 1.0)
+        raw_score = getattr(m, "raw_score", score)
+        line = (
+            f"- [{ctx_type} {score * 100:.0f}% conf {confidence:.2f}"
+            f" raw {raw_score:.2f}] {m.uri}\n    {abstract}"
+        )
         if m.uri in contents:
             line += f"\n\n    {contents[m.uri]}"
         lines.append(line)

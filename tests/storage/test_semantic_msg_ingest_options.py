@@ -19,12 +19,14 @@ def test_semantic_msg_serializes_ingest_options():
     assert data["ingest_options"] == {
         "search_tags": ["team=search"],
         "search_tag_mode": "append",
+        "confidence": None,
     }
     restored = SemanticMsg.from_dict(data)
     assert restored.ingest_options == IngestOptions(
         search_tags=["team=search"],
         search_tag_mode="append",
     )
+    assert restored.ingest_options.confidence is None
     assert restored.source == {
         "kind": "git",
         "uri": "https://example.com/acme/demo.git",

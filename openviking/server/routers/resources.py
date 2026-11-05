@@ -82,6 +82,14 @@ class AddResourceRequest(BaseModel):
             eventually consistent: the Watch is created only after the background import
             succeeds, so overlapping imports may both write before Watch finalization
             reports the conflict.
+        tags: Search tags applied to every record produced by this import.
+        tag_mode: How the supplied tags combine with existing ones ("replace" or "append").
+        confidence: Human confidence for the imported content, in the closed range
+            [0.0, 1.0]. Defaults to 1.0, meaning no discount. A value of 0.0 applies
+            the strongest discount and still returns the content; it does not exclude
+            the resource from retrieval. Omitting the field writes 1.0 explicitly, so
+            re-importing a resource resets a previous annotation. Values outside the
+            range are rejected with InvalidArgumentError.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -109,6 +117,7 @@ class AddResourceRequest(BaseModel):
     processing_mode: ProcessingMode = DEFAULT_PROCESSING_MODE
     tags: Optional[list[str]] = None
     tag_mode: str = "replace"
+    confidence: Optional[float] = None
 
     @model_validator(mode="after")
     def check_path_or_temp_file_id(self):
@@ -299,6 +308,7 @@ async def add_resource(
                 timeout=request.timeout,
                 tags=request.tags,
                 tag_mode=request.tag_mode,
+                confidence=request.confidence,
                 allow_local_path_resolution=allow_local_path_resolution,
                 enforce_public_remote_targets=True,
                 internal_task=(

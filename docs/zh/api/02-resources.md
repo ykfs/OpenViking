@@ -175,6 +175,7 @@ URL/文件  Parser  TreeBuilder  AGFS    Summarizer/Vector
 | processing_mode | string | 否 | `semantic_and_vectors` | 入库后的处理模式。`semantic_and_vectors` 是默认流程：生成语义产物（`.abstract.md`、`.overview.md`）并生成向量。`vectors_only` 跳过语义理解/VLM 总结，只对当前资源文件生成向量 |
 | tags | string[] | 否 | None | 导入时写入向量检索记录的显式检索标签，格式必须是 `k=v`，例如 `["team=search", "env=test"]`。搜索接口可用同名 `tags` 参数过滤召回 |
 | tag_mode | string | 否 | `"replace"` | `tags` 的写入模式，可选 `replace` 或 `append`。导入新资源时会随本次生成的每条向量记录写入；不会在完成后额外调用 `set_tags`，响应也不返回 `tags_result` |
+| confidence | number | 否 | `1.0` | 人工置信度，闭区间 `[0.0, 1.0]`。`1.0` 表示未标注、不折扣；`0.0` 表示最强降权（排序分压到自身的 80%），**不表示排除该资源**。越界值（`<0` 或 `>1`，含 `nan`/`inf`）或非数字会被服务端拒绝并报 `InvalidArgumentError`，不做静默截断。未指定时服务端按 `1.0` 显式写入，因此对同一 URI 重复导入即可把置信度重置为 `1.0`。该字段不能放入 `args` |
 | telemetry | TelemetryRequest | 否 | False | 是否返回遥测数据 |
 
 **补充说明**：

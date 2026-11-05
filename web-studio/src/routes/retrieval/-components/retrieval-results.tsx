@@ -423,10 +423,20 @@ function ResultRowContent({
           value={String(item.item.line)}
         />
       ) : item.item.result_kind !== 'glob' ? (
-        <ResultMetric
-          label={t('results.score')}
-          value={item.item.score.toFixed(3)}
-        />
+        <div className="flex items-start gap-1.5">
+          <ResultMetric
+            label={t('results.score')}
+            value={item.item.score.toFixed(3)}
+          />
+          <ResultMetric
+            label={t('results.rawScore')}
+            value={item.item.raw_score.toFixed(3)}
+          />
+          <ResultMetric
+            label={t('results.confidence')}
+            value={item.item.confidence.toFixed(3)}
+          />
+        </div>
       ) : null}
     </div>
   )

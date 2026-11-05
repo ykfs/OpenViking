@@ -288,6 +288,13 @@ class MatchedContext:
 
     search_tags: List[str] = field(default_factory=list)
 
+    # Unweighted retrieval score: the blended semantic/hotness value before any
+    # confidence discount. Callers that need to judge relevance on its own must
+    # use this rather than ``score``.
+    raw_score: float = 0.0
+    # Human-assigned confidence for the matched record. 1.0 means unannotated.
+    confidence: float = 1.0
+
 
 @dataclass
 class QueryResult:
@@ -378,6 +385,8 @@ class FindResult:
             "uri": ctx.uri,
             "level": ctx.level,
             "score": ctx.score,
+            "raw_score": ctx.raw_score,
+            "confidence": ctx.confidence,
             "abstract": ctx.abstract,
             "tags": normalize_search_tags(ctx.search_tags, discard_invalid=True),
         }
@@ -402,6 +411,8 @@ class FindResult:
                     "tier": f"L{ctx.level}",
                     "context_type": ctx.context_type.value,
                     "score": ctx.score,
+                    "raw_score": ctx.raw_score,
+                    "confidence": ctx.confidence,
                     "match_reason": ctx.match_reason,
                 }
                 for ctx in qr.matched_contexts
@@ -424,6 +435,8 @@ class FindResult:
                 score=d.get("score", 0.0),
                 match_reason=d.get("match_reason", ""),
                 search_tags=list(d.get("tags") or d.get("search_tags") or []),
+                raw_score=d.get("raw_score", 0.0),
+                confidence=d.get("confidence", 1.0),
             )
 
         return cls(

@@ -33,8 +33,11 @@ pub async fn handle_add_resource(
     resource_args: Option<String>,
     tags: Vec<String>,
     tag_mode: String,
+    confidence: Option<f64>,
     ctx: CliContext,
 ) -> Result<()> {
+    validate_confidence(confidence)?;
+
     let is_url =
         path.starts_with("http://") || path.starts_with("https://") || path.starts_with("git@");
     validate_watch_source(is_url, watch_interval)?;
@@ -123,12 +126,27 @@ pub async fn handle_add_resource(
         add_resource_args,
         tags,
         tag_mode,
+        confidence,
         ctx.output_format,
         ctx.compact,
         ctx.should_show_progress(),
         ctx.is_verbose(),
     )
     .await
+}
+
+/// Reject a confidence the server would refuse, so an unusable value never
+/// reaches the network. `None` means "not specified" and is always accepted.
+pub(crate) fn validate_confidence(confidence: Option<f64>) -> Result<()> {
+    let Some(value) = confidence else {
+        return Ok(());
+    };
+    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Err(Error::Client(
+            "--confidence must be a finite number within [0.0, 1.0].".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_watch_source(is_remote: bool, watch_interval: f64) -> Result<()> {
@@ -2058,5 +2076,140 @@ mod add_resource_validation_tests {
         assert!(super::validate_watch_source(false, 0.0).is_ok());
         assert!(super::validate_watch_source(false, -1.0).is_ok());
         assert!(super::validate_watch_source(true, 1.0).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod add_resource_confidence_tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::output::OutputFormat;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::oneshot;
+
+    fn context_for(url: String) -> CliContext {
+        CliContext {
+            config: Config {
+                url,
+                ..Config::default()
+            },
+            output_format: OutputFormat::Table,
+            compact: false,
+            sudo: false,
+            show_progress: None,
+            verbose: None,
+            profile: None,
+        }
+    }
+
+    async fn run_add_resource(ctx: CliContext, path: &str, confidence: Option<f64>) -> Result<()> {
+        handle_add_resource(
+            path.to_string(),
+            None,
+            None,
+            None,
+            None,
+            String::new(),
+            String::new(),
+            false,
+            None,
+            false,
+            None,
+            None,
+            None,
+            false,
+            0.0,
+            "semantic_and_vectors".to_string(),
+            None,
+            Vec::new(),
+            "replace".to_string(),
+            confidence,
+            ctx,
+        )
+        .await
+    }
+
+    async fn spawn_resource_server() -> (String, oneshot::Receiver<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test server should bind");
+        let addr = listener.local_addr().expect("test server should have addr");
+        let (request_tx, request_rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let Ok((mut stream, _)) = listener.accept().await else {
+                return;
+            };
+            let mut buffer = vec![0; 8192];
+            let Ok(read) = stream.read(&mut buffer).await else {
+                return;
+            };
+            let _ = request_tx.send(String::from_utf8_lossy(&buffer[..read]).to_string());
+
+            let body = r#"{"status":"ok","result":{"task_id":"task-1"}}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        });
+
+        (format!("http://{addr}"), request_rx)
+    }
+
+    #[tokio::test]
+    async fn handle_add_resource_rejects_confidence_above_one() {
+        // The listener never answers, so a request that did reach the network
+        // would stall instead of returning. Finishing at all therefore proves
+        // the value was refused locally, before any HTTP call.
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test server should bind");
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let path = "https://example.com/conf.md";
+
+        let error = tokio::time::timeout(
+            Duration::from_secs(5),
+            run_add_resource(context_for(url), path, Some(1.5)),
+        )
+        .await
+        .expect("out-of-range confidence must be rejected before the request is sent")
+        .expect_err("confidence above 1.0 should be rejected");
+
+        assert!(error.to_string().contains("confidence"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn handle_add_resource_rejects_negative_confidence() {
+        let path = "https://example.com/conf.md";
+        let url = "http://127.0.0.1:9".to_string();
+        let error = run_add_resource(context_for(url), path, Some(-0.1))
+            .await
+            .expect_err("negative confidence should be rejected");
+
+        assert!(error.to_string().contains("confidence"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn handle_add_resource_accepts_boundary_values() {
+        let path = "https://example.com/conf.md";
+
+        for (confidence, expected_field) in [
+            (0.0_f64, r#""confidence":0.0"#),
+            (1.0_f64, r#""confidence":1.0"#),
+        ] {
+            let (url, request_rx) = spawn_resource_server().await;
+
+            run_add_resource(context_for(url), path, Some(confidence))
+                .await
+                .expect("boundary confidence should be accepted");
+
+            let request = request_rx.await.expect("request should be captured");
+            assert!(request.starts_with("POST /api/v1/resources "), "{request}");
+            assert!(request.contains(expected_field), "{request}");
+        }
     }
 }

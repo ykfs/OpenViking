@@ -5,10 +5,14 @@ export type FindContextType = 'memory' | 'resource' | 'skill'
 export type SearchHit = {
   abstract?: string
   category?: string
+  confidence?: number
   context_type?: FindContextType | (string & {})
   level?: number
   match_reason?: string
   overview?: string | null
+  /** Unweighted retrieval score; relevance gating uses this value. */
+  raw_score?: number
+  /** Weighted ranking score: raw_score * (1 - 0.2 * (1 - confidence)). */
   score?: number
   uri?: string
 }
